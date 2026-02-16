@@ -104,9 +104,26 @@ class Main(QMainWindow):
         f = io.StringIO(template)
         uic.loadUi(f, self)
         self.search.clicked.connect(self.get_image)
-        self.ll, self.spn = geo.get_ll_span(self.enter_cor.toPlainText())
-        self.big = [x * 2 for x in self.spn]
-        self.litl = [x / 2 for x in self.spn]
+        self.enter_cor.setText('55.756086, 37.617531')
+        self.ll = self.enter_cor.toPlainText()
+
+        # ищем масштаб
+        toponym = geo.geocode(self.ll)
+        envelope = toponym["boundedBy"]["Envelope"]
+
+        # левая, нижняя, правая и верхняя границы из координат углов:
+        l, b = envelope["lowerCorner"].split(" ")
+        r, t = envelope["upperCorner"].split(" ")
+
+        # Вычисляем полуразмеры по вертикали и горизонтали
+        dx = abs(float(l) - float(r)) / 2.0
+        dy = abs(float(t) - float(b)) / 2.0
+
+        # Собираем размеры в параметр span
+        self.spn = [dx, dy]
+
+        self.big = [float(x) * 2 for x in self.spn]
+        self.litl = [float(x) / 2 for x in self.spn]
     
     def get_image(self):
         if self.ll:
@@ -139,12 +156,20 @@ class Main(QMainWindow):
         self.resize(pixmap.width(), pixmap.height())
     
     def keyPressEvent(self, ev):
-        if ev.key() == Qt.Key.Key_PageUp:
+        if ev.key() == Qt.Key.Key_W:
             if self.spn < self.big:
                 self.spn = [x + 10 for x in self.spn]
-        elif ev.key() == Qt.Key.Key_PageUp:
+        elif ev.key() == Qt.Key.Key_S:
             if self.spn > self.litl:
-                self.spn = [x - 10 for x in self.spn] 
+                self.spn = [x - 10 for x in self.spn]
+        if ev.key() == Qt.Key.Key_End:
+            self.ll[1] += 1
+        elif ev.key() == Qt.Key.Key_Home:
+            self.ll[1] -= 1
+        elif ev.key() == Qt.Key.Key_PageUp:
+            self.ll[0] += 1
+        elif ev.key() == Qt.Key.Key_PageDown:
+            self.ll[1] -= 1
         
 
 
