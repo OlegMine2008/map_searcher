@@ -7,7 +7,7 @@ from PyQt6 import uic
 import io
 from PyQt6.QtWidgets import QMainWindow, QApplication
 from PyQt6.QtGui import QPixmap
-from PIL import Image as img
+from PyQt6.QtCore import Qt
 
 import geocoder as geo
 
@@ -103,18 +103,20 @@ class Main(QMainWindow):
         super().__init__()
         f = io.StringIO(template)
         uic.loadUi(f, self)
-        self.ll_spn = None
         self.search.clicked.connect(self.get_image)
+        self.ll, self.spn = geo.get_ll_span(self.enter_cor.toPlainText())
+        self.big = [x * 2 for x in self.spn]
+        self.litl = [x / 2 for x in self.spn]
     
     def get_image(self):
-        ll_spn = geo.get_ll_span(self.enter_cor.toPlainText())
-        if ll_spn:
+        if self.ll:
             map_request = f"https://static-maps.yandex.ru/v1?"
         else:
             map_request = f"https://static-maps.yandex.ru/v1?"
 
         response = requests.get(map_request, params={'apikey' : os.getenv('GEOCODE_APIKEY'),
-                                    'geocode' : ll_spn,
+                                    'geocode' : self.ll,
+                                    'spn': self.spn,
                                     'format' : 'json'})
 
         if not response:
@@ -135,8 +137,15 @@ class Main(QMainWindow):
         self.picture_here.setPixmap(pixmap)
         self.setCentralWidget(self.picture_here)
         self.resize(pixmap.width(), pixmap.height())
-
-
+    
+    def keyPressEvent(self, ev):
+        if ev.key() == Qt.Key.Key_PageUp:
+            if self.spn < self.big:
+                self.spn = [x + 10 for x in self.spn]
+        elif ev.key() == Qt.Key.Key_PageUp:
+            if self.spn > self.litl:
+                self.spn = [x - 10 for x in self.spn] 
+        
 
 
 if __name__ == '__main__':
