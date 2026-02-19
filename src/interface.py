@@ -104,72 +104,72 @@ class Main(QMainWindow):
         f = io.StringIO(template)
         uic.loadUi(f, self)
         self.search.clicked.connect(self.get_image)
-        self.enter_cor.setText('55.756086, 37.617531')
-        self.ll = self.enter_cor.toPlainText()
-
-        # ищем масштаб
-        toponym = geo.geocode(self.ll)
-        envelope = toponym["boundedBy"]["Envelope"]
-
-        # левая, нижняя, правая и верхняя границы из координат углов:
-        l, b = envelope["lowerCorner"].split(" ")
-        r, t = envelope["upperCorner"].split(" ")
-
-        # Вычисляем полуразмеры по вертикали и горизонтали
-        dx = abs(float(l) - float(r)) / 2.0
-        dy = abs(float(t) - float(b)) / 2.0
-
-        # Собираем размеры в параметр span
-        self.spn = [dx, dy]
-
-        self.big = [float(x) * 2 for x in self.spn]
-        self.litl = [float(x) / 2 for x in self.spn]
+        
+        self.ll_list = [55.756086, 37.617531]
+        self.ll = f"{self.ll_list[0]},{self.ll_list[1]}"
+        self.enter_cor.setText(self.ll)
+     
+        self.spn = [0.05, 0.05]
+        self.zoom_speed = 0.9
     
     def get_image(self):
-        if self.ll:
-            map_request = f"https://static-maps.yandex.ru/v1?"
-        else:
-            map_request = f"https://static-maps.yandex.ru/v1?"
-
-        response = requests.get(map_request, params={'apikey' : os.getenv('GEOCODE_APIKEY'),
-                                    'geocode' : self.ll,
-                                    'spn': self.spn,
-                                    'format' : 'json'})
-
-        if not response:
-            print("Ошибка выполнения запроса:")
-            print(map_request)
-            print("Http статус:", response.status_code, "(", response.reason, ")")
-            sys.exit(1)
-
-        # Запишем полученное изображение в файл.
-        try:
-            with open('data/image.png', "wb") as file:
-                file.write(response.content)
-        except IOError as ex:
-            print("Ошибка записи временного файла:", ex)
-            sys.exit(2)
+        if not self.ll:
+            return
         
-        pixmap = QPixmap('cat.jpg')
+        text_coords = self.enter_cor.toPlainText()
+        if text_coords:
+            try:
+                lon, lat = text_coords.split(',')
+                self.ll_list = [float(lon.strip()), float(lat.strip())]
+                self.ll = text_coords
+            except:
+                pass
+        
+        map_request = "https://static-maps.yandex.ru/v1"
+        params = {
+            'apikey': os.getenv('GEOCODE_APIKEY'),
+            'll': self.ll,
+            'spn': f"{self.spn[0]},{self.spn[1]}",
+            'size': '600,400',
+            'lang': 'ru_RU'
+        }
+        
+        response = requests.get(map_request, params=params)
+        
+        if response.status_code != 200:
+            print(f"Ошибка {response.status_code}: {response.url}")
+            return
+        
+        with open('data/image.png', "wb") as file:
+            file.write(response.content)
+        
+        pixmap = QPixmap('data/image.png')
         self.picture_here.setPixmap(pixmap)
-        self.setCentralWidget(self.picture_here)
-        self.resize(pixmap.width(), pixmap.height())
+        self.picture_here.resize(pixmap.width(), pixmap.height())
     
     def keyPressEvent(self, ev):
         if ev.key() == Qt.Key.Key_W:
-            if self.spn < self.big:
-                self.spn = [x + 10 for x in self.spn]
+            self.spn = [x * self.zoom_speed for x in self.spn]
+            self.get_image()
         elif ev.key() == Qt.Key.Key_S:
-            if self.spn > self.litl:
-                self.spn = [x - 10 for x in self.spn]
-        if ev.key() == Qt.Key.Key_End:
-            self.ll[1] += 1
-        elif ev.key() == Qt.Key.Key_Home:
-            self.ll[1] -= 1
-        elif ev.key() == Qt.Key.Key_PageUp:
-            self.ll[0] += 1
-        elif ev.key() == Qt.Key.Key_PageDown:
-            self.ll[1] -= 1
+            self.spn = [x / self.zoom_speed for x in self.spn]
+            self.get_image()
+        
+        move_step = self.spn[0] * 0.5
+        if ev.key() == Qt.Key.Key_Up:
+            self.ll_list[1] += move_step
+        elif ev.key() == Qt.Key.Key_Down:
+            self.ll_list[1] -= move_step
+        elif ev.key() == Qt.Key.Key_Right:
+            self.ll_list[0] += move_step
+        elif ev.key() == Qt.Key.Key_Left:
+            self.ll_list[0] -= move_step
+        else:
+            return
+        
+        self.ll = f"{self.ll_list[0]},{self.ll_list[1]}"
+        self.enter_cor.setText(self.ll)
+        self.get_image()
         
 
 
@@ -178,3 +178,4 @@ if __name__ == '__main__':
     ex = Main()
     ex.show()
     sys.exit(app.exec())
+
