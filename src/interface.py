@@ -2,10 +2,9 @@ import sys
 import requests
 import os
 from dotenv import load_dotenv
+from untitled_ui import Ui_MainWindow
 
-from PyQt6 import uic
-import io
-from PyQt6.QtWidgets import QMainWindow, QApplication
+from PyQt6.QtWidgets import QApplication, QMainWindow
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtCore import Qt
 
@@ -19,98 +18,13 @@ MIN_SPN = 0.0001
 MAX_SPN_X = 180.0
 MAX_SPN_Y = 90.0
 
-template = '''<?xml version="1.0" encoding="UTF-8"?>
-<ui version="4.0">
- <class>MainWindow</class>
- <widget class="QMainWindow" name="MainWindow">
-  <property name="geometry">
-   <rect>
-    <x>0</x>
-    <y>0</y>
-    <width>800</width>
-    <height>600</height>
-   </rect>
-  </property>
-  <property name="windowTitle">
-   <string>MainWindow</string>
-  </property>
-  <widget class="QWidget" name="centralwidget">
-   <widget class="QTextEdit" name="enter_cor">
-    <property name="geometry">
-     <rect>
-      <x>130</x>
-      <y>40</y>
-      <width>521</width>
-      <height>31</height>
-     </rect>
-    </property>
-   </widget>
-   <widget class="QLabel" name="label">
-    <property name="geometry">
-     <rect>
-      <x>320</x>
-      <y>10</y>
-      <width>121</width>
-      <height>31</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Введите координаты</string>
-    </property>
-    <property name="scaledContents">
-     <bool>false</bool>
-    </property>
-   </widget>
-   <widget class="QPushButton" name="search">
-    <property name="geometry">
-     <rect>
-      <x>330</x>
-      <y>80</y>
-      <width>93</width>
-      <height>28</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>Найти</string>
-    </property>
-   </widget>
-   <widget class="QLabel" name="picture_here">
-    <property name="geometry">
-     <rect>
-      <x>110</x>
-      <y>120</y>
-      <width>591</width>
-      <height>391</height>
-     </rect>
-    </property>
-    <property name="text">
-     <string>TextLabel</string>
-    </property>
-   </widget>
-  </widget>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>800</width>
-     <height>26</height>
-    </rect>
-   </property>
-  </widget>
-  <widget class="QStatusBar" name="statusbar"/>
- </widget>
- <resources/>
- <connections/>
-</ui>'''
 
-
-class Main(QMainWindow):
+class Main(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
-        f = io.StringIO(template)
-        uic.loadUi(f, self)
+        self.setupUi(self)
         self.search.clicked.connect(self.get_image)
+        self.checkBox.stateChanged.connect(self.turn_mode)
 
         self.ll_list = [37.617531, 55.756086]
         self.ll = f"{self.ll_list[0]},{self.ll_list[1]}"
@@ -119,6 +33,7 @@ class Main(QMainWindow):
         self.spn = [0.05, 0.05]
         self.zoom_speed = 0.9
         self.move_factor = 0.5
+        self.dark = False
 
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setFocus()
@@ -181,6 +96,11 @@ class Main(QMainWindow):
         if not api_key:
             print("Не найден STATICMAPS_APIKEY в окружении")
             return
+        
+        if self.dark:
+            thema = 'dark'
+        else:
+            thema = 'light'
 
         response = requests.get(
             "https://static-maps.yandex.ru/v1",
@@ -188,8 +108,9 @@ class Main(QMainWindow):
                 'apikey': api_key,
                 'll': self.ll,
                 'spn': f"{self.spn[0]},{self.spn[1]}",
-                'size': '600,400',
+                'size': '650,400',
                 'lang': 'ru_RU',
+                'theme': thema
             },
             timeout=10,
         )
@@ -206,6 +127,9 @@ class Main(QMainWindow):
         pixmap = QPixmap('data/image.png')
         self.picture_here.setPixmap(pixmap)
         self.picture_here.resize(pixmap.width(), pixmap.height())
+    
+    def turn_mode(self):
+        self.dark = self.checkBox.isChecked()
 
     def keyPressEvent(self, ev):
         key = ev.key()
